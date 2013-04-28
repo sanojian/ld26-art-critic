@@ -193,11 +193,11 @@ $(document).ready(function() {
 	
 	g_game.targetBox = g_game.raphPaper.rect(g_game.raphPaper.width/2 + 8, 1, 200, 200).attr({ fill: '#ffffff', 'stroke-width': 3 });
 	g_game.targetImages = [];
-	g_game.levelText = g_game.raphPaper.text(g_game.targetBox.attrs.x + g_game.targetBox.attrs.width/2, g_game.targetBox.attrs.height + 22, 'Level ' + g_game.level)
+	g_game.levelText = g_game.raphPaper.text(g_game.targetBox.attrs.x + g_game.targetBox.attrs.width/2, g_game.targetBox.attrs.height + 26, 'Restart\nLevel ' + g_game.level)
 		.attr( { font: g_game.FONT, 'font-weight': 'bold', href: 'javascript: loadLevel(' + g_game.level + ')' });
-	g_game.nextText = g_game.raphPaper.text(g_game.levelText.attrs.x + 72, g_game.levelText.attrs.y, 'Next ->')
+	g_game.nextText = g_game.raphPaper.text(g_game.levelText.attrs.x + 72, g_game.levelText.attrs.y-10, 'Next ->')
 		.attr( { font: g_game.FONT, 'font-weight': 'bold', href: 'javascript: loadLevel(' + (g_game.level+1) + ')' });
-	g_game.prevText = g_game.raphPaper.text(g_game.levelText.attrs.x - 72, g_game.levelText.attrs.y, '<- Prev')
+	g_game.prevText = g_game.raphPaper.text(g_game.levelText.attrs.x - 72, g_game.levelText.attrs.y-10, '<- Prev')
 		.attr( { font: g_game.FONT, 'font-weight': 'bold', href: 'javascript: loadLevel(' + (g_game.level-1) + ')' });
 
 	
@@ -258,7 +258,7 @@ function loadLevel(level) {
 	// clone level image
 	g_game.notCompleted = images.slice(0);
 
-	g_game.levelText.attr( { fill: '#000000', href: 'javascript: loadLevel(' + g_game.level + ')', text: 'Level ' + level });
+	g_game.levelText.attr( { fill: '#000000', href: 'javascript: loadLevel(' + g_game.level + ')', text: 'Restart\nLevel ' + level });
 	g_game.prevText[level > 1 ? 'show' : 'hide']().attr( { fill: '#000000', href: 'javascript: loadLevel(' + (g_game.level-1) + ')' });
 	g_game.nextText.hide().attr( { fill: '#000000', href: 'javascript: loadLevel(' + (g_game.level+1) + ')' });
 
