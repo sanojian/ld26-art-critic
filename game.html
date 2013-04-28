@@ -63,6 +63,7 @@ g_game = {
 };
 
 g_criticism = {
+		winEverything: 'You have found the sublime\nbeauty in resonating spacial\nrelationships.  Well done!',
 		winning: [
 			'Brilliant!',
 			'A MASTERP... er I mean an\ninteresting work.',
@@ -139,14 +140,20 @@ $(document).ready(function() {
 		});
 	}
 	g_game.sounds.swish = new buzz.sound( "./audio/swish", {
-		formats: [ "wav" ]
+		formats: [ "ogg", "wav" ]
+	}).setVolume(20);
+	g_game.sounds.winSong = new buzz.sound( "./audio/winSong", {
+		formats: [ "ogg", "wav" ],
+		preload: true,
+		autoplay: false,
+		loop: true
 	}).setVolume(20);
 	g_game.sounds.thunk = new buzz.sound( "./audio/thunk", {
-		formats: [ "wav" ]
+		formats: [ "ogg", "wav" ]
 	}).setVolume(20);
 	for (var i=0;i<4;i++) {
 		g_game.sounds.bloops[i] = new buzz.sound( "./audio/bloop" + i, {
-			formats: [ "wav" ]
+			formats: [ "ogg", "wav" ]
 		}).setVolume(10);
 	}
 	
@@ -201,7 +208,7 @@ $(document).ready(function() {
 	g_game.nextItem = g_game.raphPaper.rect(10, 10, 10, 10).attr({ 'stroke-width': 4 });
 	g_game.nextItem.game = { imageNum: -1 };
 	
-	loadLevel(localStorage.artCriticLevel || 1);
+	loadLevel((localStorage && localStorage.artCriticLevel) || 1);
 	
 });
 
@@ -211,6 +218,7 @@ function loadLevel(level) {
 	g_game.bStopRequested = true;
 	g_game.lost = false;
 	g_game.won = false;
+	g_game.bWonEverything = false;
 	
 	var images = g_game.levels[level].images;
 	
@@ -335,16 +343,34 @@ function doGameLoop(frames) {
 	}
 	if (g_game.animationCount >= 0) {
 		g_game.animationCount++;
-		if (g_game.animationCount > 60) {
+		if (g_game.animationCount > 90 && !g_game.bWonEverything) {
 			g_game.animationCount = -1;
 		}
 		else if (g_game.animationCount < 10) {
 			g_game.artist.attr({ y: g_game.artist.attrs.y - 13 });
 		}
-		else if (g_game.animationCount > 50) {
-			g_game.artist.attr({ y: g_game.artist.attrs.y + 13 });
-			g_game.messageBubble.hide();
-			g_game.message.hide();
+		else if (g_game.animationCount > 10 && g_game.animationCount < 80) {
+			var count = Math.floor(g_game.animationCount / 5);
+			if (count % 2 == 1) {
+				g_game.artist.attr({ src: './images/artist' + (g_game.bWonEverything ? 'Win' : '') + '.png' });
+			}
+			else {
+				g_game.artist.attr({ src: './images/artist' + (g_game.bWonEverything ? 'Win' : '') + 'Talk.png' });
+			}
+		}
+		else if (g_game.animationCount > 80) {
+			if (g_game.bWonEverything && g_game.animationCount < 250) {
+				;// wait around longer...
+			}
+			else if (g_game.bWonEverything) {
+				g_game.bStopRequested = true;
+				$(document).unbind('mousedown');
+			}
+			else {
+				g_game.artist.attr({ y: g_game.artist.attrs.y + 13 });
+				g_game.messageBubble.hide();
+				g_game.message.hide();
+			}
 		}
 		else if (g_game.animationCount == 10) {
 			g_game.message.attr({ text: g_game.messageText, x: g_game.artist.attrs.x + g_game.artist.attrs.width/2, y: g_game.artist.attrs.y - 60 });
@@ -390,20 +416,39 @@ function doGameLoop(frames) {
 						if (match) {
 							g_game.motionObjects[i].attr( { x: g_game.referenceObjects[g_game.motionObjects[i].game.imageNum].attrs.x, y: g_game.referenceObjects[g_game.motionObjects[i].game.imageNum].attrs.y });
 							if (g_game.notCompleted.length == 0) {
-								berateUser(g_criticism.winning[Math.floor(Math.random() * g_criticism.winning.length)]);
-								g_game.nextText.show();
-								localStorage.artCriticLevel = parseInt(g_game.level, 10) + 1;
-								g_game.sounds.win[Math.floor(Math.random() * g_game.sounds.win.length)].play();
+								// WON!!!
+								// count the levels
+								var count = 0;
+								for (var key in g_game.levels) {
+									count++;
+								}
+								if (g_game.level == count) {
+									console.log('won everything!!!');
+									g_game.sounds.winSong.play();
+									g_game.bWonEverything = true;
+									berateUser(g_criticism.winEverything);
+									g_game.sounds.win[Math.floor(Math.random() * g_game.sounds.win.length)].play();
+								}
+								else {
+									berateUser(g_criticism.winning[Math.floor(Math.random() * g_criticism.winning.length)]);
+									g_game.nextText.show();
+									if (localStorage) {
+										localStorage.artCriticLevel = parseInt(g_game.level, 10) + 1;
+									}
+									g_game.sounds.win[Math.floor(Math.random() * g_game.sounds.win.length)].play();
+								}
 								g_game.won = true;
 							}
 						}
 						else {
+							// LOST!!!
 							berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.winning.length)]);
 							g_game.sounds.lose[Math.floor(Math.random() * g_game.sounds.lose.length)].play();
 							g_game.lost = true;
 						}
 					}
 					else {
+						// LOST!!!
 						berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.winning.length)]);
 						g_game.sounds.lose[Math.floor(Math.random() * g_game.sounds.lose.length)].play();
 						g_game.lost = true;
