@@ -384,7 +384,7 @@ function doGameLoop(frames) {
 			if (g_game.won) {
 				g_game.sounds.win[Math.floor(Math.random() * g_game.sounds.win.length)].play();
 			}
-			else {
+			else if (g_game.lost) {
 				g_game.sounds.lose[Math.floor(Math.random() * g_game.sounds.lose.length)].play();			
 			}
 		}
