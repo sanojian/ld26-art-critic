@@ -132,7 +132,7 @@ $(document).ready(function() {
 		}
 	});
 	
-	for (var i=0;i<3;i++) {
+	for (var i=0;i<4;i++) {
 		g_game.sounds.win[i] = new buzz.sound( "./audio/win" + i, {
 			formats: [ "ogg" ]
 		});
@@ -142,7 +142,7 @@ $(document).ready(function() {
 	}
 	g_game.sounds.swish = new buzz.sound( "./audio/swish", {
 		formats: [ "ogg", "wav" ]
-	}).setVolume(20);
+	}).setVolume(15);
 	g_game.sounds.winSong = new buzz.sound( "./audio/winSong", {
 		formats: [ "ogg", "wav" ],
 		preload: true,
@@ -151,11 +151,11 @@ $(document).ready(function() {
 	}).setVolume(20);
 	g_game.sounds.thunk = new buzz.sound( "./audio/thunk", {
 		formats: [ "ogg", "wav" ]
-	}).setVolume(20);
+	}).setVolume(15);
 	for (var i=0;i<4;i++) {
 		g_game.sounds.bloops[i] = new buzz.sound( "./audio/bloop" + i, {
 			formats: [ "ogg", "wav" ]
-		}).setVolume(10);
+		}).setVolume(5);
 	}
 	
 	var gameWidth = $(document).width()-32;
@@ -381,6 +381,12 @@ function doGameLoop(frames) {
 			g_game.messageBubble.attr({ x: bbox.x - 12, y: bbox.y - 12, width: bbox.width + 24, height: bbox.height + 24 });
 			g_game.messageBubble.toFront().show();
 			g_game.message.toFront().show();
+			if (g_game.won) {
+				g_game.sounds.win[Math.floor(Math.random() * g_game.sounds.win.length)].play();
+			}
+			else {
+				g_game.sounds.lose[Math.floor(Math.random() * g_game.sounds.lose.length)].play();			
+			}
 		}
 	}
 	
@@ -436,22 +442,19 @@ function doGameLoop(frames) {
 									if (localStorage) {
 										localStorage.artCriticLevel = parseInt(g_game.level, 10) + 1;
 									}
-									g_game.sounds.win[Math.floor(Math.random() * g_game.sounds.win.length)].play();
 								}
 								g_game.won = true;
 							}
 						}
 						else {
 							// LOST!!!
-							berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.winning.length)]);
-							g_game.sounds.lose[Math.floor(Math.random() * g_game.sounds.lose.length)].play();
+							berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.losing.length)]);
 							g_game.lost = true;
 						}
 					}
 					else {
 						// LOST!!!
-						berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.winning.length)]);
-						g_game.sounds.lose[Math.floor(Math.random() * g_game.sounds.lose.length)].play();
+						berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.losing.length)]);
 						g_game.lost = true;
 					}
 					g_game.staticObjects.push(g_game.motionObjects[i]);
