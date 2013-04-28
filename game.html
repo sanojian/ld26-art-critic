@@ -38,6 +38,19 @@ g_game = {
 				},
 				4: {
 					images: [
+								{ x: 160, y: 150, w: 40, h: 40, color: 3 },
+								{ x: 36, y: 0, w: 30, h: 60, color: 0 }
+					]
+				},
+				5: {
+					images: [
+								{ x: 170, y: 0, w: 30, h: 80, color: 1 },
+								{ x: 150, y: 56, w: 22, h: 32, color: 4 },
+								{ x: 0, y: 148, w: 40, h: 40, color: 3 }
+					]
+				},
+				6: {
+					images: [
 								{ x: 0, y: 30, w: 80, h: 20, color: 0 },
 								{ x: 80, y: 30, w: 40, h: 20, color: 0 },
 								{ x: 120, y: 30, w: 80, h: 20, color: 3 },
@@ -79,9 +92,9 @@ g_criticism = {
 		
 $(document).ready(function() {
 
-	$(document).bind('keydown', function(evt) {
-	    var code = evt.which; // recommended to use e.which, it's normalized across browsers
-		if (code==32 || code==13 || code==188 || code==186) {
+	$(document).bind('mousedown', function(evt) {
+	    //var code = evt.which; // recommended to use e.which, it's normalized across browsers
+		//if (code==32 || code==13 || code==188 || code==186) {
 			if (g_game.imageNum > -1) {
 				g_game.notCompleted.splice(g_game.imageNum, 1);
 			}
@@ -110,7 +123,7 @@ $(document).ready(function() {
 			g_game.motionObjects[0].game.pointer.toFront();
 			
 			randomizeNextItem();
-		}
+		//
 	});
 	
 	var gameWidth = $(document).width()-32;
@@ -321,11 +334,18 @@ function doGameLoop(frames) {
 	}
 	
 	for (var i=0;i<g_game.motionObjects.length;i++) {
-		g_game.motionObjects[i].attr( { x: (g_game.motionObjects[i].attrs.x || g_game.motionObjects[i].attrs.cx) + g_game.motionObjects[i].game.direction.x, 
-										y: (g_game.motionObjects[i].attrs.y || g_game.motionObjects[i].attrs.cy) + g_game.motionObjects[i].game.direction.y,
-										cx: (g_game.motionObjects[i].attrs.x || g_game.motionObjects[i].attrs.cx) + g_game.motionObjects[i].game.direction.x, 
-										cy: (g_game.motionObjects[i].attrs.y || g_game.motionObjects[i].attrs.cy) + g_game.motionObjects[i].game.direction.y });
-
+		if (i == 0) {
+			g_game.motionObjects[i].attr( { cx: g_game.motionObjects[i].attrs.cx + g_game.motionObjects[i].game.direction.x, 
+											cy: g_game.motionObjects[i].attrs.cy + g_game.motionObjects[i].game.direction.y });
+		} 
+		else {
+			var x = g_game.motionObjects[i].attrs.x + g_game.motionObjects[i].game.direction.x;
+			var y = g_game.motionObjects[i].attrs.y + g_game.motionObjects[i].game.direction.y;
+			g_game.motionObjects[i].attr( { x: Math.max(0, Math.min(x, g_game.raphPaper.width/2 - g_game.motionObjects[i].attrs.width)), 
+											y: Math.max(0, Math.min(y, g_game.raphPaper.height - g_game.motionObjects[i].attrs.height)) });
+			
+		}
+										
 		for (var j=0;j<g_game.staticObjects.length;j++) {
 			// if collide is toggled off, shooter cant collide with shot objects
 			if (!g_game.bCollide && i == 0 && j > 3) {
@@ -367,6 +387,11 @@ function doGameLoop(frames) {
 			}
 		}
 	}
+	
+	// make sure shooter is within bounds
+	g_game.motionObjects[0].attr( { cx: Math.max(0, Math.min(g_game.motionObjects[0].attrs.cx, g_game.raphPaper.width/2 - g_game.motionObjects[0].attrs.r)), 
+									cy: Math.max(0, Math.min(g_game.motionObjects[0].attrs.cy, g_game.raphPaper.height - g_game.motionObjects[0].attrs.r)) });
+	
 	g_game.motionObjects[0].game.rotation = (g_game.motionObjects[0].game.rotation + 5) % 360;
 	g_game.motionObjects[0].game.pointer.transform('t' + g_game.motionObjects[0].attrs.cx + ',' + g_game.motionObjects[0].attrs.cy 
 													+ 'r' + g_game.motionObjects[0].game.rotation + ',0,0');
