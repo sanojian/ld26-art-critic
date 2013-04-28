@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<!--
+	LD 26 Game - an HTML5 game written for the Ludum Dare 26
+	Copyright (C) 2013 Jonas "sanojian" Olmstead
+	
+	**apologies to Piet Mondrian**
+	
+-->
+<html>
+	<head>
+		<script type="text/javascript" src="./includes/crafty.js"></script>
+		<script type="text/javascript" src="./includes/jQuery.js"></script>
+		<script type="text/javascript" src="./includes/raphael2.js"></script>
+		<script type="text/javascript" src="./includes/SAT.js"></script>
+		
+		<script language="javascript">
+
+g_game = {
+			COLORS: ['#ffffff', '#000000', '#ff0000', '#0000ff', '#ffff00'],
+			bCollide: true,
+			bGameStopped: true,
+			bStopRequest: true,
+			FONT: '18px Helvetica',
+			FONT_SPEECH: '32px Helvetica',
+			level: 1,
+			levels: {
+				1: { 
+					images: [ { x: 0, y: 0, w: 40, h: 80, color: 2 } ]
+				},
+				2: {
+					images: [ { x: 140, y: 30, w: 60, h: 60, color: 3 }	]
+				},
+				3: {
+					images: [
+								{ x: 20, y: 120, w: 20, h: 80, color: 0 },
+								{ x: 34, y: 136, w: 30, h: 30, color: 4 }
+					]
+				},
+				4: {
+					images: [
+								{ x: 0, y: 30, w: 80, h: 20, color: 0 },
+								{ x: 80, y: 30, w: 40, h: 20, color: 0 },
+								{ x: 120, y: 30, w: 80, h: 20, color: 3 },
+								{ x: 160, y: 46, w: 40, h: 40, color: 2 }
+					]
+				}
+			}
+};
+
+g_criticism = {
+		winning: [
+			'Brilliant!',
+			'A MASTERP... er I mean an\ninteresting work.',
+			'Curious but inspired!',
+			'There is a certain balance\n to the imbalance.',
+			'A remarkable handling of light.',
+			'A real metaphorical resonance.',
+			'The optical suggestions\nare quite stimulating.'
+			
+		],
+		losing: [
+			'This hardly represents the\nhuman condition.',
+			'I feel your colors were too\nextravagant.',
+			'I am not sensing the\nmeaning within the negative space.',
+			'I find it difficult to enter\ninto this work.',
+			'Oh now this is a\npredictable piece.',
+			'No no, the reductive quality\nthreatens the montage.',
+			'There is inherent overspecificity\nat work here.'
+		],
+		start: [
+			'This shouldn\'t be\ntoo difficult.',
+			'Try breathing with your senses.',
+			'You must endeavor to\ncapture the struggle.',
+			'Define a motif and\nthen deconstruct it.',
+			'Contextualize!',
+			'Try to feel out\nthe juxtapositions.'
+		]
+}
+		
+$(document).ready(function() {
+
+	$(document).bind('keydown', function(evt) {
+	    var code = evt.which; // recommended to use e.which, it's normalized across browsers
+		if (code==32 || code==13 || code==188 || code==186) {
+			if (g_game.imageNum > -1) {
+				g_game.notCompleted.splice(g_game.imageNum, 1);
+			}
+			var item = g_game.nextItem.clone();
+			item.game = {};
+			for (var key in g_game.nextItem.game) {
+				item.game[key] = g_game.nextItem.game[key];
+			}
+			if (g_game.motionObjects[0].game.rotation < 45 || g_game.motionObjects[0].game.rotation >= 315) {
+				item.attr({ x: g_game.motionObjects[0].attrs.cx + g_game.motionObjects[0].attrs.r, y: g_game.motionObjects[0].attrs.cy - item.attrs.height/2 });
+			}
+			else if (g_game.motionObjects[0].game.rotation < 135 && g_game.motionObjects[0].game.rotation >= 45) {
+				item.attr({ x: g_game.motionObjects[0].attrs.cx - item.attrs.width/2, y: g_game.motionObjects[0].attrs.cy + g_game.motionObjects[0].attrs.r });
+			}
+			else if (g_game.motionObjects[0].game.rotation < 225 || g_game.motionObjects[0].game.rotation >= 135) {
+				item.attr({ x: g_game.motionObjects[0].attrs.cx - g_game.motionObjects[0].attrs.r - item.attrs.width, y: g_game.motionObjects[0].attrs.cy - item.attrs.height/2 });
+			}
+			else {
+				item.attr({ x: g_game.motionObjects[0].attrs.cx - item.attrs.width/2, y: g_game.motionObjects[0].attrs.cy - g_game.motionObjects[0].attrs.r - item.attrs.height });
+			}
+			var rads = (Math.PI * g_game.motionObjects[0].game.rotation/180);
+			
+			item.game.direction = { x: 20*Math.cos(rads), y: 20*Math.sin(rads) };
+			g_game.motionObjects.push(item);
+			g_game.motionObjects[0].toFront();
+			g_game.motionObjects[0].game.pointer.toFront();
+			
+			randomizeNextItem();
+		}
+	});
+	
+	var gameWidth = $(document).width()-32;
+	var gameHeight = $(document).height()-32;
+	if (gameWidth/2 > gameHeight) {
+		gameWidth = gameHeight * 2;
+	}
+	else {
+		gameHeight = gameWidth/2;
+	}
+	
+	g_game.zoom = gameHeight / 200;
+	
+	$('#gameHolder').width(gameWidth).height(gameHeight);
+	g_game.raphPaper = Raphael("gameHolder");
+
+	// cover ref objects
+	g_game.referenceObjects = [];
+	g_game.backCover = g_game.raphPaper.rect(0, 0, g_game.raphPaper.width/2, g_game.raphPaper.height).attr({ fill: '#ffffff' });
+	
+	g_game.staticObjects = [
+		g_game.raphPaper.rect(0, 0, g_game.raphPaper.width/2, 8).attr( { fill: 'ffffff' } ),
+		g_game.raphPaper.rect(0, 0, 8, g_game.raphPaper.height).attr( { fill: 'ffffff' } ),
+		g_game.raphPaper.rect(0, g_game.raphPaper.height - 8, g_game.raphPaper.width/2, 8).attr( { fill: 'ffffff' } ),
+		g_game.raphPaper.rect(g_game.raphPaper.width/2 - 8, 0, 8, g_game.raphPaper.height).attr( { fill: 'ffffff' } )
+	];
+	
+	var item = g_game.raphPaper.circle(100, 100, 24).attr( { 'stroke-width': 4, fill: g_game.COLORS[0] } );
+	item.game = { 
+					direction: { x: 8, y: 12 },
+					pointer: g_game.raphPaper.path('M0 0L' + (item.attrs.r-4) + ',0L' + (item.attrs.r-8) + ' -6L' + (item.attrs.r-4) + ' 0L' + (item.attrs.r-8) + ' 6').attr({ 'stroke-width': 4 }),
+					rotation: 0
+	};
+	g_game.motionObjects = [ item ];
+	
+	g_game.targetBox = g_game.raphPaper.rect(g_game.raphPaper.width/2 + 8, 1, 200, 200).attr({ fill: '#ffffff', 'stroke-width': 3 });
+	g_game.targetImages = [];
+	g_game.levelText = g_game.raphPaper.text(g_game.targetBox.attrs.x + g_game.targetBox.attrs.width/2, g_game.targetBox.attrs.height + 22, 'Level ' + g_game.level)
+		.attr( { font: g_game.FONT, 'font-weight': 'bold', href: 'javascript: loadLevel(' + g_game.level + ')' });
+	g_game.nextText = g_game.raphPaper.text(g_game.levelText.attrs.x + 72, g_game.levelText.attrs.y, 'Next ->')
+		.attr( { font: g_game.FONT, 'font-weight': 'bold', href: 'javascript: loadLevel(' + (g_game.level+1) + ')' });
+	g_game.prevText = g_game.raphPaper.text(g_game.levelText.attrs.x - 72, g_game.levelText.attrs.y, '<- Prev')
+		.attr( { font: g_game.FONT, 'font-weight': 'bold', href: 'javascript: loadLevel(' + (g_game.level-1) + ')' });
+
+	
+	g_game.artistStartY = g_game.raphPaper.height-3*gameHeight/7 - 30;
+	g_game.artist = g_game.raphPaper.image('./images/artist.png', g_game.raphPaper.width/2 + 64, g_game.artistStartY, 120, 150);
+	g_game.messageBubble = g_game.raphPaper.rect(10,10,10,10, 6).attr({ fill: '#ffffff', 'stroke-width': 3 }).hide();
+	g_game.message = g_game.raphPaper.text(10,10, 'test').attr( { font: g_game.FONT_SPEECH }).hide();
+	g_game.nextPreview = g_game.raphPaper.rect(g_game.raphPaper.width/2 + 8, g_game.raphPaper.height-3*gameHeight/7  - 1, 3*gameHeight/7, 3*gameHeight/7).attr({ fill: '#ffffff', 'stroke-width': 3 });
+	g_game.nextItem = g_game.raphPaper.rect(10, 10, 10, 10).attr({ 'stroke-width': 4 });
+	g_game.nextItem.game = { imageNum: -1 };
+	
+	loadLevel(1);
+	
+});
+
+function loadLevel(level) {
+
+	g_game.level = level;
+	g_game.bStopRequested = true;
+	g_game.lost = false;
+	g_game.won = false;
+	
+	var images = g_game.levels[level].images;
+	
+	for (var i=0;i<g_game.referenceObjects.length;i++) {
+		g_game.referenceObjects[i].remove();
+	}
+	g_game.referenceObjects = [];
+	for (var i=0;i<images.length;i++) {
+		// place reference objects on board to check winning conditions
+		images[i].num = i;
+		g_game.referenceObjects.push(	g_game.raphPaper.rect(	images[i].x * g_game.zoom, images[i].y * g_game.zoom, 
+																images[i].w * g_game.zoom, images[i].h * g_game.zoom));
+	}	
+	for (var i=0;i<g_game.referenceObjects.length;i++) {
+		g_game.referenceObjects[i].insertBefore(g_game.backCover);
+	}
+	
+	while (g_game.staticObjects.length > 4) {
+		g_game.staticObjects[g_game.staticObjects.length-1].remove();
+		g_game.staticObjects.pop();
+	}
+	while (g_game.motionObjects.length > 1) {
+		g_game.motionObjects[g_game.motionObjects.length-1].remove();
+		g_game.motionObjects.pop();
+	}
+	
+	for (var i=0;i<g_game.targetImages.length;i++) {
+		g_game.targetImages[i].remove();
+	}
+	g_game.targetImages = [];
+	for (var i=0;i<images.length;i++) {
+		g_game.targetImages.push(g_game.raphPaper.rect(	g_game.targetBox.attrs.x + images[i].x, g_game.targetBox.attrs.y + images[i].y, 
+														images[i].w, images[i].h)
+			.attr({ fill: g_game.COLORS[images[i].color], 'stroke-width': 2 }));
+	}
+	// clone level image
+	g_game.notCompleted = images.slice(0);
+
+	g_game.levelText.attr( { fill: '#000000', href: 'javascript: loadLevel(' + g_game.level + ')', text: 'Level ' + level });
+	g_game.prevText[level > 1 ? 'show' : 'hide']().attr( { fill: '#000000', href: 'javascript: loadLevel(' + (g_game.level-1) + ')' });
+	g_game.nextText.hide().attr( { fill: '#000000', href: 'javascript: loadLevel(' + (g_game.level+1) + ')' });
+
+	var waitForStop = function() {
+		if (g_game.bGameStopped) {
+			g_game.bStopRequested = false;
+			berateUser(g_criticism.start[Math.floor(Math.random() * g_criticism.start.length)]);
+			randomizeNextItem();
+			doGameLoop(1);
+			return true;
+		}
+		setTimeout(function() { waitForStop(); }, 100);
+	}
+
+	waitForStop();
+	
+}
+
+function berateUser(message) {
+	g_game.messageText = message;
+	g_game.bMessageUser = true;
+}
+
+function randomizeNextItem() {
+	
+	if (g_game.notCompleted.length > 0 && Math.random() > 1 / (g_game.notCompleted.length+1)) {
+		var num = Math.floor(Math.random() * g_game.notCompleted.length);
+		g_game.imageNum = num;
+		var width = g_game.notCompleted[num].w * g_game.zoom;
+		var height = g_game.notCompleted[num].h * g_game.zoom;
+		g_game.nextItem.attr({ width: width, height: height, fill: g_game.COLORS[g_game.notCompleted[num].color] } );
+		g_game.nextItem.attr({ 	x: g_game.nextPreview.attrs.x + g_game.nextPreview.attrs.width/2 - width/2, 
+								y: g_game.nextPreview.attrs.y + g_game.nextPreview.attrs.height/2 - height/2 });
+		g_game.nextItem.game.imageNum = g_game.notCompleted[num].num;					
+	}
+	else {
+		// random block
+		g_game.imageNum = -1;
+		g_game.nextItem.game.imageNum = -1;
+		var width = 10 + Math.floor(Math.random() * (g_game.nextPreview.attrs.width - 20));
+		var height = 10 + Math.floor(Math.random() * (g_game.nextPreview.attrs.height - 20));
+		var color = g_game.COLORS[0];
+		if (Math.random() < 0.15) {
+			width = 200;
+			height = 113;
+			color = 'url(./images/potato.png)';
+		}
+		if (Math.random() > 0.5) {
+			color = g_game.COLORS[Math.floor(Math.random() * g_game.COLORS.length)];
+		}
+		g_game.nextItem.attr({ 	x: g_game.nextPreview.attrs.x + g_game.nextPreview.attrs.width/2 - width/2, 
+								y: g_game.nextPreview.attrs.y + g_game.nextPreview.attrs.height/2 - height/2, 
+								width: width, height: height,  fill: color });
+	}
+	
+}
+
+function doGameLoop(frames) {
+	
+	g_game.bGameStopped = false;
+
+	if  (frames % 89 == 0) {
+		g_game.bCollide = !g_game.bCollide;
+		g_game.motionObjects[0].attr({  opacity: g_game.bCollide ? 1 : 0.4 });
+	}
+	if  (frames % 59 == 0) {
+		randomizeNextItem();
+	}
+	
+	if (g_game.lost && frames % 8 == 0) {
+		g_game.levelText.attr({ fill: g_game.levelText.attrs.fill == '#000000' ? '#999900' : '#000000' });
+	}
+	if (g_game.won && frames % 8 == 0) {
+		g_game.nextText.attr({ fill: g_game.nextText.attrs.fill == '#000000' ? '#999900' : '#000000' });
+	}
+	
+	if (g_game.bMessageUser) {
+		g_game.animationCount = 0;
+		g_game.artist.attr( { y: g_game.artistStartY });
+		g_game.messageBubble.hide();
+		g_game.message.hide();
+		g_game.bMessageUser = false;
+	}
+	if (g_game.animationCount >= 0) {
+		g_game.animationCount++;
+		if (g_game.animationCount > 60) {
+			g_game.animationCount = -1;
+		}
+		else if (g_game.animationCount < 10) {
+			g_game.artist.attr({ y: g_game.artist.attrs.y - 13 });
+		}
+		else if (g_game.animationCount > 50) {
+			g_game.artist.attr({ y: g_game.artist.attrs.y + 13 });
+			g_game.messageBubble.hide();
+			g_game.message.hide();
+		}
+		else if (g_game.animationCount == 10) {
+			g_game.message.attr({ text: g_game.messageText, x: g_game.artist.attrs.x + g_game.artist.attrs.width/2, y: g_game.artist.attrs.y - 60 });
+			var bbox = g_game.message.getBBox();
+			g_game.message.attr({ y: g_game.message.attrs.y - (bbox.y + bbox.height - g_game.artist.attrs.y) });
+			bbox = g_game.message.getBBox();
+			g_game.messageBubble.attr({ x: bbox.x - 12, y: bbox.y - 12, width: bbox.width + 24, height: bbox.height + 24 });
+			g_game.messageBubble.toFront().show();
+			g_game.message.toFront().show();
+		}
+	}
+	
+	for (var i=0;i<g_game.motionObjects.length;i++) {
+		g_game.motionObjects[i].attr( { x: (g_game.motionObjects[i].attrs.x || g_game.motionObjects[i].attrs.cx) + g_game.motionObjects[i].game.direction.x, 
+										y: (g_game.motionObjects[i].attrs.y || g_game.motionObjects[i].attrs.cy) + g_game.motionObjects[i].game.direction.y,
+										cx: (g_game.motionObjects[i].attrs.x || g_game.motionObjects[i].attrs.cx) + g_game.motionObjects[i].game.direction.x, 
+										cy: (g_game.motionObjects[i].attrs.y || g_game.motionObjects[i].attrs.cy) + g_game.motionObjects[i].game.direction.y });
+
+		for (var j=0;j<g_game.staticObjects.length;j++) {
+			// if collide is toggled off, shooter cant collide with shot objects
+			if (!g_game.bCollide && i == 0 && j > 3) {
+				break;
+			}
+			var overlap = overlaps(g_game.staticObjects[j], g_game.motionObjects[i]);
+			if (overlap) {
+				if (overlap.overlapN.x) {
+					g_game.motionObjects[i].game.direction.x = 0 - g_game.motionObjects[i].game.direction.x;
+				}
+				if (overlap.overlapN.y) {
+					g_game.motionObjects[i].game.direction.y = 0 - g_game.motionObjects[i].game.direction.y;
+				}
+				if (i != 0) {
+					if (g_game.motionObjects[i].game.imageNum > -1) {
+						var match = overlaps(g_game.motionObjects[i], g_game.referenceObjects[g_game.motionObjects[i].game.imageNum]);
+						if (match) {
+							g_game.motionObjects[i].attr( { x: g_game.referenceObjects[g_game.motionObjects[i].game.imageNum].attrs.x, y: g_game.referenceObjects[g_game.motionObjects[i].game.imageNum].attrs.y });
+							if (g_game.notCompleted.length == 0) {
+								berateUser(g_criticism.winning[Math.floor(Math.random() * g_criticism.winning.length)]);
+								g_game.nextText.show();
+								g_game.won = true;
+							}
+						}
+						else {
+							berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.winning.length)]);
+							g_game.lost = true;
+						}
+					}
+					else {
+						berateUser(g_criticism.losing[Math.floor(Math.random() * g_criticism.winning.length)]);
+						g_game.lost = true;
+					}
+					g_game.staticObjects.push(g_game.motionObjects[i]);
+					g_game.motionObjects.splice(i,1);
+					i--;
+				}
+				break;
+			}
+		}
+	}
+	g_game.motionObjects[0].game.rotation = (g_game.motionObjects[0].game.rotation + 5) % 360;
+	g_game.motionObjects[0].game.pointer.transform('t' + g_game.motionObjects[0].attrs.cx + ',' + g_game.motionObjects[0].attrs.cy 
+													+ 'r' + g_game.motionObjects[0].game.rotation + ',0,0');
+	
+	if (g_game.bStopRequested) {
+		g_game.bStopRequested = false;
+		g_game.bGameStopped = true;
+	}
+	else {
+		setTimeout(function() { doGameLoop(frames + 1); }, 50);
+	}
+
+}
+
+function reverseColor(hex) {
+	var colors = hexToRgb(hex);
+	return rgbToHex((255 - colors.r) % 256, (255 - colors.g) % 256, (255 - colors.b) % 256);
+}
+function rgbToHex(r, g, b) {
+	var componentToHex = function(c) {
+		var hex = c.toString(16);
+		return hex.length == 1 ? "0" + hex : hex;
+	};
+    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+}
+function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
+// a must always be a rect
+var overlaps = function (a, b) {
+	var rads = (Math.PI*(a.rotation || 0)/180);
+	var V = SAT.Vector;
+	var P = SAT.Polygon;
+	var polygon1 = new P( new V(a.attrs.x, a.attrs.y), [ 	new V(0, 0), 
+														new V(a.attrs.width, 0),
+														new V(a.attrs.width, a.attrs.height), 
+														new V(0, a.attrs.height) ] );
+															
+	var shape2;
+	var response = new SAT.Response();
+	var collided;
+	if (b.type == "rect") {													
+		shape2 = new P( new V(b.attrs.x, b.attrs.y), [ 	new V(0, 0), 
+															new V(b.attrs.width, 0),
+															new V(b.attrs.width, b.attrs.height), 
+															new V(0, b.attrs.height) ] );
+		collided = SAT.testPolygonPolygon(polygon1, shape2, response);
+	}
+	else { 
+		shape2 = new SAT.Circle( new V(b.attrs.cx, b.attrs.cy), b.attrs.r );
+		collided = SAT.testPolygonCircle(polygon1, shape2, response);
+	}
+	if (collided)
+		return response;
+	
+	return false;
+};
+		</script>
+		
+	</head>
+	
+	<body bgcolor="#ffffee" style2="background-image:url(./images/background.png); margin: 0px;">
+		<table align="center" style="margin: 0px;">
+			<tr>
+				<td id="tdGameArea"><div id="gameHolder"></div></td>
+			</tr>
+		</table>
+	
+	
+	</body>
+
+</html>
